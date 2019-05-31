@@ -358,7 +358,7 @@ bitmap_best (struct bitmap *b, size_t cnt, bool value)
 
   size_t idx = bitmap_scan(b, 0, cnt, value);
   size_t next_1 = bitmap_return_next_1(b, idx+cnt+1, cnt, !value);
-  size_t size = (idx - next1);
+  size_t size = (idx - next_1);
 
   size_t best_size = size;
   size_t best = idx;
@@ -366,13 +366,16 @@ bitmap_best (struct bitmap *b, size_t cnt, bool value)
   while( (next_1 != b->bit_cnt) && (idx != BITMAP_ERROR) ){
     idx = bitmap_scan(b,idx+cnt, cnt, value);
     next_1 = bitmap_return_next_1(b, idx+cnt+1, cnt, !value);
-    size = (idx - next1);
+    size = (idx - next_1);
 
     if(idx != BITMAP_ERROR && best_size >= size){
       best = idx;
       best_size = size;
     }
   }
+
+  if (best != BITMAP_ERROR) 
+    bitmap_set_multiple (b, best, cnt, !value);
 
   return best;
 }

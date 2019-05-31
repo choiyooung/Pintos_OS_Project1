@@ -14,9 +14,9 @@ enum palloc_flags
 enum polloc_policys
 {
   FIRSTFIT = 0,
-  NEXTFIT = 1
-  
-}
+  NEXTFIT = 1,
+  BESTFIT = 2
+};
 
 void palloc_init (size_t user_page_limit);
 void *palloc_get_page (enum palloc_flags);

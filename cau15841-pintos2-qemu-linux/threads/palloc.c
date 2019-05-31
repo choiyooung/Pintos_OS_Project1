@@ -37,7 +37,7 @@ struct pool
 static struct pool kernel_pool, user_pool;
 
 //NEXTfIT 시작 지점을 계석 업데이트하면서 해당 구역부터시작하게 한다.
-static enum polloc_policys policy = NEXTFIT;
+static enum polloc_policys policy = FIRSTFIT;
 static size_t nextfitStart;
 
 static void init_pool (struct pool *, void *base, size_t page_cnt,
@@ -72,7 +72,8 @@ palloc_init (size_t user_page_limit)
      case NEXTFIT:
      nextfitStart =0;
     break;
-  
+      case BESTFIT:
+    break;
   default:
     break;
   }
@@ -109,6 +110,9 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
       }
       //page idx가 나온다면, 해당 page가 할당 된후 다음 주소를 nextfitStart에 넣어준다.
       nextfitStart =  pool->base + PGSIZE * (page_idx + page_cnt);
+      break;
+    case BESTFIT:
+      page_idx = bitmap_best(pool->used_map, page_cnt, false);
       break;
     default:
       break;

@@ -11,6 +11,6 @@ main (int argc, char** argv)
   }
   printf("\n");
 
-  printf("hi\n");
+  printf("hi\nhello");
   return EXIT_SUCCESS;
 }

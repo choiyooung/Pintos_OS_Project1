@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "shutdown.h": "c"
+        "shutdown.h": "c",
+        "interrupt.h": "c"
     }
 }

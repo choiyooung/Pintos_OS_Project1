@@ -28,8 +28,25 @@ frame_init(){
     list_init(&frame_table);
 }
 
-//새로운 frame table에 frame 엔트리를 할당한다.
+//새로운 page들이 할당이 될때, frame table에 대한 entry도 table에 추가한다.
+
 void*
-frame_allocate(void * upage){
-    void *frame_page = palloc_get_page(PAL_USER);
+frame_allocate(void * upage, void* kpage){
+    if(kpage == NULL){
+        /*이 부부은 페이지가 할당이 안되서,
+        어떤 페이지를 스왑 시킨다음에  그 공간에 대한 entry 할당해야한다.
+         */
+    }
+     struct frame_table_entry *frame = malloc(sizeof(struct frame_table_entry));
+
+    frame->t = thread_current();
+    frame->upage = upage;
+    frame->kpage = kpage;
+
+    list_push_back(&frame_table,&frame->lelem);
+    return frame;    
+}
+void
+frame_free(void* kpage){
+
 }

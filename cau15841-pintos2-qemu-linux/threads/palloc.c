@@ -37,7 +37,7 @@ struct pool
 static struct pool kernel_pool, user_pool;
 
 //NEXTfIT 시작 지점을 계석 업데이트하면서 해당 구역부터시작하게 한다.
-static enum polloc_policys policy = NEXTFIT;
+static enum polloc_policys policy = FIRSTFIT;
 static size_t nextfitStart;
 
 static void init_pool (struct pool *, void *base, size_t page_cnt,
@@ -58,11 +58,11 @@ palloc_init (size_t user_page_limit)
   if (user_pages > user_page_limit)
     user_pages = user_page_limit;
   kernel_pages = free_pages - user_pages;
-
   /* Give half of memory to kernel, half to user. */
   init_pool (&kernel_pool, free_start, kernel_pages, "kernel pool");
   init_pool (&user_pool, free_start + kernel_pages * PGSIZE,
              user_pages, "user pool");
+             
   //nextfit을 한다면 nextfitStart를 0으로 초기화한다.
   switch (policy)
   {
@@ -119,7 +119,7 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
     pages = pool->base + PGSIZE * page_idx;
   else
     pages = NULL;
-
+    
   if (pages != NULL) 
     {
       if (flags & PAL_ZERO)
@@ -195,7 +195,7 @@ init_pool (struct pool *p, void *base, size_t page_cnt, const char *name)
     PANIC ("Not enough memory in %s for bitmap.", name);
   page_cnt -= bm_pages;
 
-  printf ("%zu pages available in %s.\n", page_cnt, name);
+  printf ("%zu pages availables in %s.\n", page_cnt, name);
 
   /* Initialize the pool. */
   lock_init (&p->lock);

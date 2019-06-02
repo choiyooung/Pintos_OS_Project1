@@ -1,6 +1,12 @@
 {
     "files.associations": {
         "shutdown.h": "c",
-        "interrupt.h": "c"
+        "interrupt.h": "c",
+        "syscall.h": "c",
+        "bitmap.h": "c",
+        "palloc.h": "c",
+        "pagedir.h": "c",
+        "round.h": "c",
+        "hash.h": "c"
     }
 }

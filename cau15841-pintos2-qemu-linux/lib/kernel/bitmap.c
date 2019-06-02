@@ -369,3 +369,55 @@ bitmap_dump (const struct bitmap *b)
   hex_dump (0, b->bits, byte_cnt (b->bit_cnt), false);
 }
 
+
+
+/* Best Fit에 이용 scan 변형
+   다음에 set되어 있는 자료 주소 리턴
+   or 다음 자료가 없거나 탐색결과가 마지막일 시에는 b->bit_cnt가 return
+*/
+size_t
+bitmap_return_next_1 (const struct bitmap *b, size_t start, size_t cnt, bool value) 
+{
+  ASSERT (b != NULL);
+  ASSERT (start <= b->bit_cnt);
+
+  size_t last = b->bit_cnt;
+  if(start >= last)
+    return b->bit_cnt;
+
+  size_t i;
+    for (i = start; i < last; i++)
+      if (bitmap_test(b, i)) // i항목에 1이 있으면 1을 return
+        return i; 
+    
+  return b->bit_cnt;
+}
+/* Best Fit(scan_and_flip 응용)
+   start = 0 이라 매개변수 없앰
+   b에는 pool->used_map로 들어옴 (user 공간), cnt 필요 공간 size
+*/
+size_t
+bitmap_best (struct bitmap *b, size_t cnt, bool value)
+{
+  ASSERT (b != NULL);
+
+  size_t idx = bitmap_scan(b, 0, cnt, value);
+  size_t next_1 = bitmap_return_next_1(b, idx+cnt+1, cnt, !value);
+  size_t size = next_1 - idx;
+
+  size_t best_size = size;
+  size_t best = idx;
+  printf("best_size : %d   ", best_size);
+  while( (next_1 != b->bit_cnt) && (idx != BITMAP_ERROR) ){
+    idx = bitmap_scan(b,idx+cnt, cnt, value);
+    next_1 = bitmap_return_next_1(b, idx+cnt+1, cnt, !value);
+    size = next_1-idx;
+    printf("size : %d \n", size);
+    if(idx != BITMAP_ERROR && best_size >= size){
+      best = idx;
+      best_size = size;
+    }
+  }
+  printf("best PAGE iNDX : %d/n", best);
+  return best;
+}

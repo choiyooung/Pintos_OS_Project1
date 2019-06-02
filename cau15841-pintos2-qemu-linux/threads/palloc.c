@@ -12,7 +12,8 @@
 #include "threads/vaddr.h"
 
 /* Page allocator.  Hands out memory in page-size (or
-   page-multiple) chunks.  See malloc.h for an allocator that
+   page#include <lib/kernel/bitmap.h>
+#include <lib/kernel/bitmap.c>-multiple) chunks.  See malloc.h for an allocator that
    hands out smaller chunks.
 
    System memory is divided into two "pools" called the kernel
@@ -34,11 +35,12 @@ struct pool
   };
 
 /* Two pools: one for kernel data, one for user pages. */
-static struct pool kernel_pool, user_pool;
+struct pool kernel_pool, user_pool;
 
 //NEXTfIT 시작 지점을 계석 업데이트하면서 해당 구역부터시작하게 한다.
-static enum polloc_policys policy = FIRSTFIT;
+static enum polloc_policys policy = BESTFIT;
 static size_t nextfitStart;
+
 
 static void init_pool (struct pool *, void *base, size_t page_cnt,
                        const char *name);
@@ -76,6 +78,8 @@ palloc_init (size_t user_page_limit)
   default:
     break;
   }
+  create_dump_page();
+  print_userpool();
 }
 
 /* Obtains and returns a group of PAGE_CNT contiguous free pages.
@@ -95,43 +99,92 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
     return NULL;
 
   lock_acquire (&pool->lock);
-  switch (policy)
-  {
-    case FIRSTFIT:
-      page_idx = bitmap_scan_and_flip (pool->used_map, 0, page_cnt, false);
-      break;
-    case NEXTFIT:
-      page_idx = bitmap_scan_and_flip (pool->used_map, nextfitStart, page_cnt, false);
-      //만약 btmap 에러가 뜬다면, nextfitStart를 0으로 초기화하고, 다시 해본다.
-      if(page_idx == BITMAP_ERROR){
-        nextfitStart = 0;
+  if(flags & PAL_USER ? 1 : 0){
+    switch (policy)
+    {
+      case FIRSTFIT:
+        page_idx = bitmap_scan_and_flip (pool->used_map, 0, page_cnt, false);
+        break;
+      case NEXTFIT:
+        printf("before nextfit Start : %d", nextfitStart);
         page_idx = bitmap_scan_and_flip (pool->used_map, nextfitStart, page_cnt, false);
-      }
-      //page idx가 나온다면, 해당 page가 할당 된후 다음 주소를 nextfitStart에 넣어준다.
-      nextfitStart =  pool->base + PGSIZE * (page_idx + page_cnt);
-      break;
-    default:
-      break;
+        //만약 btmap 에러가 뜬다면, nextfitStart를 0으로 초기화하고, 다시 해본다.
+        if(page_idx == BITMAP_ERROR){
+          nextfitStart = 0;
+          page_idx = bitmap_scan_and_flip (pool->used_map, nextfitStart, page_cnt, false);
+        }
+        //page idx가 나온다면, 해당 page가 할당 된후 다음 주소를 nextfitStart에 넣어준다.
+        nextfitStart =  (page_idx + page_cnt)% 367;
+        printf("after nextfit Start : %d \n", nextfitStart);
+        break;
+      case BESTFIT:
+        page_idx = bitmap_best(pool->used_map, page_cnt, false);
+        break;
+      default:
+        break;
+    }
+  }else{
+    page_idx = bitmap_scan_and_flip (pool->used_map, 0, page_cnt, false);
   }
+  
   lock_release (&pool->lock);
 
   if (page_idx != BITMAP_ERROR)
     pages = pool->base + PGSIZE * page_idx;
   else
     pages = NULL;
-    
+
   if (pages != NULL) 
     {
       if (flags & PAL_ZERO)
         memset (pages, 0, PGSIZE * page_cnt);
     }
   else 
-    {
+    { print_userpool();
+    printf("page cnt : %d \n",page_cnt);
       if (flags & PAL_ASSERT)
         PANIC ("palloc_get: out of pages");
     }
+    if(flags & PAL_USER? 1 : 0){
+       print_userpool();
+       printf("page cnt : %d \n",page_cnt);
 
+    }
   return pages;
+}
+// 
+void create_dump_page(){
+  struct pool *pool = &user_pool; 
+  //0 ~ 30까지의 페이지 set(true로 만듬)
+  bitmap_set_multiple(pool->used_map, 0, 30, true);
+  //간격 40
+  bitmap_set_multiple(pool->used_map, 70, 20, true);
+  //간격 30
+  bitmap_set_multiple(pool->used_map, 120, 30, true);
+  nextfitStart = 150;
+
+}
+void print_userpool(){
+  size_t i;
+    size_t start = 0;
+    struct pool *pool = &user_pool; 
+    size_t last = 367;
+    int j = 0;
+
+    //전체 bitmap 출력
+    for(i = start; i < last; i++){
+        if(bitmap_test (pool->used_map, i) == true){
+            printf("1");
+        }       
+        else{
+            printf("0");
+        }
+        j++;
+        if(j%60 == 0)
+            printf("\n");
+    }
+    j = 0;
+    printf("\n");
 }
 
 /* Obtains a single free page and returns its kernel virtual

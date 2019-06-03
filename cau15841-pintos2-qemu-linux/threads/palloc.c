@@ -140,8 +140,7 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
         memset (pages, 0, PGSIZE * page_cnt);
     }
   else 
-    { print_userpool();
-    printf("page cnt : %d \n",page_cnt);
+    {
       if (flags & PAL_ASSERT)
         PANIC ("palloc_get: out of pages");
     }

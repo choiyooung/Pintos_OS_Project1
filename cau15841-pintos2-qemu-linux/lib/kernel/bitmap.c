@@ -409,15 +409,17 @@ bitmap_best (struct bitmap *b, size_t cnt, bool value)
   size_t best = idx;
   printf("best_size : %d   ", best_size);
   while( (next_1 != b->bit_cnt) && (idx != BITMAP_ERROR) ){
-    idx = bitmap_scan(b,idx+cnt, cnt, value);
+    idx = bitmap_scan(b,next_1, cnt, value);
     next_1 = bitmap_return_next_1(b, idx+cnt+1, cnt, !value);
     size = next_1-idx;
     printf("size : %d \n", size);
     if(idx != BITMAP_ERROR && best_size >= size){
       best = idx;
       best_size = size;
+      printf("new best_size : %d   ", best_size);
     }
   }
-  printf("best PAGE iNDX : %d/n", best);
+  if (idx != BITMAP_ERROR) 
+    bitmap_set_multiple (b, best, cnt, !value);
   return best;
 }

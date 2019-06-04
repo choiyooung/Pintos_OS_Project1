@@ -17,6 +17,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "vm/frame.h"
 
 /* Parameters for user program execution
    len: the length of a program command line 
@@ -475,14 +476,14 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* Get a page of memory. */
-      uint8_t *kpage = palloc_get_page (PAL_USER);
+      uint8_t *kpage = frame_allocate(PAL_USER,upage);
       if (kpage == NULL)
         return false;
 
       /* Load this page. */
       if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
         {
-          palloc_free_page (kpage);
+         frame_free(kpage);
           return false; 
         }
       memset (kpage + page_read_bytes, 0, page_zero_bytes);
@@ -490,9 +491,11 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, writable)) 
         {
-          palloc_free_page (kpage);
+          frame_free(kpage);
           return false; 
         }
+        //여기에 kpage랑 upage랑 mapping 됬으니까. 그러면 여기서 frame table도 set해야겠다.
+
 
       /* Advance. */
       read_bytes -= page_read_bytes;
@@ -513,7 +516,7 @@ setup_stack (struct uprg_params *params, void **esp)
   int i, t, argc;
   uint32_t addr; 
 
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+  kpage =  frame_allocate(PAL_USER | PAL_ZERO, PHYS_BASE - PGSIZE);
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
@@ -635,7 +638,7 @@ setup_stack (struct uprg_params *params, void **esp)
 #endif 
       }
       else
-        palloc_free_page (kpage);
+       frame_free(kpage);
     }
   return success;
 }
@@ -659,3 +662,8 @@ install_page (void *upage, void *kpage, bool writable)
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
 }
+ /*이 유제 페이지랑 kpage에서 mapping하고싶을떄,
+        , 해당 upage가 pysical에 매핑되는 게 현재 pagedir에 없고, pagedir에
+        upage에 해당하는 kpage를 mapping 할때에, pte를 만들고, 넣어준다. 만약 성공하면
+        true, 실패ㅏ면 false를 반환한다.  
+        */

@@ -8,6 +8,7 @@
         "pagedir.h": "c",
         "round.h": "c",
         "hash.h": "c",
-        "kbd.h": "c"
+        "kbd.h": "c",
+        "synch.h": "c"
     }
 }

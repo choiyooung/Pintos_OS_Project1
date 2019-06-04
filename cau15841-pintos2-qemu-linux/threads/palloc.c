@@ -63,18 +63,17 @@ palloc_init (size_t user_page_limit)
   /* Give half of memory to kernel, half to user. */
   init_pool (&kernel_pool, free_start, kernel_pages, "kernel pool");
   init_pool (&user_pool, free_start + kernel_pages * PGSIZE,
-             user_pages, "user pool");
-             
+             user_pages, "user pool");     
   //nextfit을 한다면 nextfitStart를 0으로 초기화한다.
   switch (policy)
   {
-     case FIRSTFIT:
-    /* code */
-    break;
      case NEXTFIT:
      nextfitStart =0;
     break;
-  
+    case BUDDY:
+    
+     bitmap_buddy_init(palloc_get_user_pool_bitmap(),user_pages);
+    break;
   default:
     break;
   }
@@ -120,6 +119,9 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
       case BESTFIT:
         page_idx = bitmap_best(pool->used_map, page_cnt, false);
         break;
+      case BUDDY:
+        page_idx = bitmap_best(pool->used_map, page_cnt, false);
+        break;
       default:
         break;
     }
@@ -147,9 +149,20 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
     if(flags & PAL_USER? 1 : 0){
        print_userpool();
        printf("page cnt : %d \n",page_cnt);
-
+       printf("pool->base : %ul, page %ul\n ",pool->base, pages);
     }
   return pages;
+}
+//frame use
+void *
+palloc_get_user_pool_base(){
+  struct pool *pool = &user_pool;
+  return pool->base;
+}
+size_t *
+palloc_get_user_pool_bitmap(){
+  struct pool *pool = &user_pool;
+  return pool->used_map;
 }
 // 
 void create_dump_page(){
@@ -248,6 +261,7 @@ init_pool (struct pool *p, void *base, size_t page_cnt, const char *name)
   page_cnt -= bm_pages;
 
   printf ("%zu pages availables in %s.\n", page_cnt, name);
+  printf("%u pages is bm_pages\n",bm_pages);
 
   /* Initialize the pool. */
   lock_init (&p->lock);

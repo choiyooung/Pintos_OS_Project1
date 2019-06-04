@@ -7,7 +7,10 @@
 #ifdef FILESYS
 #include "filesys/file.h"
 #endif
-
+//BUDDY를 위한 구조체
+
+//정책으로 buddy가 사용되어지면 해당 list를 buddy init에서 초기화한다.
+buddy_list *b_list;
 /* Element type.
 
    This must be an unsigned integer type at least as wide as int.
@@ -422,4 +425,124 @@ bitmap_best (struct bitmap *b, size_t cnt, bool value)
   if (idx != BITMAP_ERROR) 
     bitmap_set_multiple (b, best, cnt, !value);
   return best;
+}
+
+size_t
+bitmap_buddy(struct bitmap *b, size_t cnt, bool value){
+  ASSERT (b != NULL);
+  struct buddy_node *buddy = b_list->head;
+  size_t bitmap_size = buddy->pages_size;
+  size_t bitmap_start_idx =  buddy->idx;
+  size_t idx;
+  idx = bitmap_buddy_scan(buddy,cnt);
+   if (idx != BITMAP_ERROR) 
+    bitmap_set_multiple (b, idx, cnt, !value);
+  return idx;
+}
+
+size_t
+bitmap_buddy_scan(struct buddy_node* parent,size_t cnt){
+  size_t bitmap_size = parent->pages_size;
+  size_t start_idx = parent->idx;
+  size_t idx = -1; 
+  if(cnt > bitmap_size){
+    //bitmap 보다 더 큰 page 개수를 요구하면 , error를 return 한다.
+    return BITMAP_ERROR;
+  }else if(cnt <= bitmap_size && cnt > bitmap_size/2){
+     if(parent->buddy_child_right == NULL, parent->buddy_child_left == NULL){
+       parent->flag = true;
+      return start_idx;
+     }
+     return idx;
+  }else if(cnt <= bitmap_size/2){
+    //4가지 경우로 나누어진다.
+    //현재 현 노드의 자시기 없을경우
+    if(parent->buddy_child_right == NULL, parent->buddy_child_left == NULL){
+      //오른쪽과 왼쪽의 자식노드를 생성한다.
+      struct buddy_node* right_child = (struct buddy_node *)malloc(sizeof(struct buddy_node));
+      struct buddy_node* left_child = (struct buddy_node *)malloc(sizeof(struct buddy_node));
+      //오른쪽과 왼쪽 자식노드의 bitmap size를 계산해서 넣어준다.
+      left_child->pages_size =  bitmap_size/2;
+      right_child->pages_size = bitmap_size/2 + bitmap_size%2;
+
+      //오른쪽과 왼쪽의 시작 idx를 계산해서 넣어준다.
+      left_child->idx = start_idx;
+      right_child->idx = start_idx+bitmap_size/2;
+      //flag도 초기화해준다.
+      left_child->flag = false;
+      right_child->flag = false;
+
+      //부모노드와 자식노드를 이어준다.
+      parent->buddy_child_left = left_child;
+      parent->buddy_child_right = right_child;
+      // 해당 노드를 왼쪽부터 실행한다.
+      return bitmap_buddy_scan(parent->buddy_child_left,cnt);
+    }else{
+    //현 노드의 자식이 있고, 둘다 사용중일 경우
+    struct buddy_node* left_child = parent->buddy_child_left;
+    struct buddy_node* right_child = parent->buddy_child_right;
+      if(left_child->flag == true && right_child->flag == true){
+        return idx;
+      }else if(left_child->flag == true && right_child->flag == false){
+        return bitmap_buddy_scan(parent->buddy_child_right,cnt);
+      }else if(left_child->flag == false && right_child->flag == true){
+        return bitmap_buddy_scan(parent->buddy_child_left,cnt);
+      }else{
+        idx =  bitmap_buddy_scan(parent->buddy_child_left,cnt);
+        if(idx ==-1){
+          idx =  bitmap_buddy_scan(parent->buddy_child_right,cnt);
+          if(idx == -1){
+            idx = BITMAP_ERROR;
+          }
+        }
+        return idx;
+      }
+
+    //현 노드의 자식은 있고, 하나만 사용중일 경우
+    }  
+  }
+  return BITMAP_ERROR;
+}
+//list를 초기화환다.
+void
+bitmap_buddy_init(size_t b_start, size_t cnt){
+  //list를 할당하고,하나의 노드를 연결한다.
+  b_list = (buddy_list*)malloc(sizeof(buddy_list));
+  //노드 하나를 만들어서 list에 넣어준다.
+  struct  buddy_node* node = (struct buddy_node *)malloc(sizeof(struct buddy_node));
+  b_list->head = node;
+  b_list->tail = node;
+  //pagesize 값은 bitamp의 전체 수로 초기화한다.
+  node->idx = 0;
+  node->pages_size = cnt;
+  //flag를 false라고 초기화한다.
+  node->flag = false;
+}
+
+void
+bitmap_buddy_free(size_t page_idx,size_t page_cnt){
+    struct buddy_node* node = b_list->head; 
+
+}
+int
+buddy_list_search_leafnode(struct buddy_node* parent,size_t page_idx,size_t page_cnt){
+  int stop = 0;
+  if(parent->buddy_child_right == NULL && parent->buddy_child_left ==NULL && parent->flag == true){
+    if(page_idx>= parent->idx && page_idx < parent->idx + parent->pages_size){
+      ASSERT(page_cnt< parent->pages_size);
+      parent->flag = false;
+      return 1;
+  }
+ stop = buddy_list_search_leafnode(parent->buddy_child_left,page_idx,page_cnt);
+ if(stop == 1){
+   return stop;
+ }
+ stop = buddy_list_search_leafnode(parent->buddy_child_right,page_idx,page_cnt);
+  if(stop == 1){
+   return stop;
+ }
+}
+void
+buddy_merge_leafnode(){
+  
 }

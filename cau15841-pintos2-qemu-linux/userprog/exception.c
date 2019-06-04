@@ -156,6 +156,34 @@ page_fault (struct intr_frame *f)
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");
-  kill (f);
+   // if(not_present){ //주메모리 적재 X이면
+   //    if(is_user_vaddr(fault_addr)){ //user_pool이면
+   //       //꽉차서 스왑아웃 시켜야 하는지(table에서 받아옴), 아닌지(palloc_get_page(PAL_USER)) 결정후
+   //       //주소값 저장후 진행(idx)
+   //       uint32_t idx;
+
+   //       if(/* 새table, fault_addr 보고 swap되어 있는지 판단  */){ 
+
+   //          vm_swap_in(/*swap_index*/, /*위에서 찾은 스왑아웃시킨 곳 addr(MM)*/);
+
+
+   //          //이정보 frame table에 넣어야함
+
+   //       }else if(/* file system */){
+
+   //          set_page(active_pd(), fault_addr, /*physical addr*/, write); // 이걸 else 조건문에 넣어도 될듯
+            
+   //          //이정보 frame table에 넣어야함
+   //       }else{
+   //          kill(f);
+   //       }
+   //    }else{
+   //       kill (f);
+   //    }
+   // }
+   // else{
+   //        kill (f);
+   // }
+    kill (f);
 }
 

@@ -434,7 +434,9 @@ bitmap_buddy(struct bitmap *b, size_t cnt, bool value){
   size_t bitmap_size = buddy->pages_size;
   size_t bitmap_start_idx =  buddy->idx;
   size_t idx;
+  printf("bitma_buddy start\n");
   idx = bitmap_buddy_scan(buddy,cnt);
+  printf("bitma_buddy finish\n");
    if (idx != BITMAP_ERROR) 
     bitmap_set_multiple (b, idx, cnt, !value);
   return idx;
@@ -444,7 +446,8 @@ size_t
 bitmap_buddy_scan(struct buddy_node* parent,size_t cnt){
   size_t bitmap_size = parent->pages_size;
   size_t start_idx = parent->idx;
-  size_t idx = -1; 
+  size_t idx = -1;
+  printf("bitma_buddy_scan start, parent->pagesize : %d, parent->idx : %d, page_cnt : %d\n",bitmap_size, start_idx,cnt); 
   if(cnt > bitmap_size){
     //bitmap 보다 더 큰 page 개수를 요구하면 , error를 return 한다.
     return BITMAP_ERROR;
@@ -455,9 +458,11 @@ bitmap_buddy_scan(struct buddy_node* parent,size_t cnt){
      }
      return idx;
   }else if(cnt <= bitmap_size/2){
+    printf("this come here?\n");
     //4가지 경우로 나누어진다.
     //현재 현 노드의 자시기 없을경우
     if(parent->buddy_child_right == NULL, parent->buddy_child_left == NULL){
+      printf("this come here????\n");
       //오른쪽과 왼쪽의 자식노드를 생성한다.
       struct buddy_node* right_child = (struct buddy_node *)malloc(sizeof(struct buddy_node));
       struct buddy_node* left_child = (struct buddy_node *)malloc(sizeof(struct buddy_node));
@@ -471,11 +476,21 @@ bitmap_buddy_scan(struct buddy_node* parent,size_t cnt){
       //flag도 초기화해준다.
       left_child->flag = false;
       right_child->flag = false;
+      //자기 자신은 leaf노드가 아니기때문에 is_leaf를 false로 바꿔주고, 자식노드는  lead node이기 떄문에 ture로 초기화한다.
+      parent->is_leaf = false;
 
+      left_child->is_leaf = true;
+      right_child->is_leaf = true;
+
+      left_child->buddy_child_left = NULL;
+      left_child->buddy_child_right = NULL;
+      right_child->buddy_child_right = NULL;
+      right_child->buddy_child_left = NULL;
       //부모노드와 자식노드를 이어준다.
       parent->buddy_child_left = left_child;
       parent->buddy_child_right = right_child;
       // 해당 노드를 왼쪽부터 실행한다.
+      printf("this come here!!!!!!\n");
       return bitmap_buddy_scan(parent->buddy_child_left,cnt);
     }else{
     //현 노드의 자식이 있고, 둘다 사용중일 경우
@@ -488,6 +503,7 @@ bitmap_buddy_scan(struct buddy_node* parent,size_t cnt){
       }else if(left_child->flag == false && right_child->flag == true){
         return bitmap_buddy_scan(parent->buddy_child_left,cnt);
       }else{
+        printf("that come here!!!!\n");
         idx =  bitmap_buddy_scan(parent->buddy_child_left,cnt);
         if(idx ==-1){
           idx =  bitmap_buddy_scan(parent->buddy_child_right,cnt);
@@ -506,6 +522,8 @@ bitmap_buddy_scan(struct buddy_node* parent,size_t cnt){
 //list를 초기화환다.
 void
 bitmap_buddy_init(size_t b_start, size_t cnt){
+
+  printf("budy init start");
   //list를 할당하고,하나의 노드를 연결한다.
   b_list = (buddy_list*)malloc(sizeof(buddy_list));
   //노드 하나를 만들어서 list에 넣어준다.
@@ -517,12 +535,15 @@ bitmap_buddy_init(size_t b_start, size_t cnt){
   node->pages_size = cnt;
   //flag를 false라고 초기화한다.
   node->flag = false;
+  node->is_leaf = true;
+  printf("budy init finish\n");
 }
 
 void
 bitmap_buddy_free(size_t page_idx,size_t page_cnt){
-    struct buddy_node* node = b_list->head; 
-
+  struct buddy_node* node = b_list->head; 
+  buddy_list_search_leafnode(node,page_idx,page_cnt);
+  buddy_merge_leafnode(node);
 }
 int
 buddy_list_search_leafnode(struct buddy_node* parent,size_t page_idx,size_t page_cnt){
@@ -533,16 +554,47 @@ buddy_list_search_leafnode(struct buddy_node* parent,size_t page_idx,size_t page
       parent->flag = false;
       return 1;
   }
- stop = buddy_list_search_leafnode(parent->buddy_child_left,page_idx,page_cnt);
- if(stop == 1){
-   return stop;
- }
- stop = buddy_list_search_leafnode(parent->buddy_child_right,page_idx,page_cnt);
+  stop = buddy_list_search_leafnode(parent->buddy_child_left,page_idx,page_cnt);
   if(stop == 1){
-   return stop;
- }
+    return stop;
+  }
+  stop = buddy_list_search_leafnode(parent->buddy_child_right,page_idx,page_cnt);
+    if(stop == 1){
+      return stop;
+   }
+  }
 }
-void
-buddy_merge_leafnode(){
-  
+
+int 
+buddy_merge_leafnode(struct buddy_node* parent){
+  int check= 0;
+    struct buddy_node* left_child = parent->buddy_child_left;
+    struct buddy_node* right_child = parent->buddy_child_right;
+    //왼쪽의 leaf노드이고, 사용중인 것이 아니면, check 증가
+    if(left_child->is_leaf == true && left_child->flag == false ){
+      check++;
+    }else if(left_child->is_leaf == false){
+      check += buddy_merge_leafnode(left_child);
+    }else if(left_child->is_leaf == true && left_child->flag == true ){
+      return 0;
+    }
+    //오른쪽이 leaf노드이고 사용중이지 않으면 check 증가
+    if(right_child->is_leaf == true && right_child->flag == false){
+      check++;
+    }else if(right_child->is_leaf == false){
+      check += buddy_merge_leafnode(right_child);
+    }else if(right_child->is_leaf == true && right_child->flag == true ){
+      return 0;
+    }
+    // check가 2라면, 자식 노드들 제거
+    if(check ==2){
+      free(left_child);
+      free(right_child);
+
+      //parent 도 초기화
+      parent->buddy_child_left = NULL;
+      parent->buddy_child_right = NULL;
+      return 1;
+    }
 }
+

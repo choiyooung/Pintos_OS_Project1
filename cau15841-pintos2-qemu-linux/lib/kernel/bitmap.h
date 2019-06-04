@@ -52,6 +52,7 @@ typedef struct __list{
 struct buddy_node{
     size_t pages_size; //최대 싸이즈
     size_t *idx; // 시작하는 bitmap 인덱스
+    bool is_leaf; //leaf node이면 true, 아니면 false;
     bool flag; // 사용중이면, true, 아니면 false를 한다.
     struct __node * buddy_child_right;
     struct __node * buddy_child_left;
@@ -60,7 +61,13 @@ struct buddy_node{
 void bitmap_dump (const struct bitmap *);
 size_t bitmap_return_next_1 (const struct bitmap *b, size_t start, size_t cnt, bool value);
 size_t bitmap_best (struct bitmap *b, size_t cnt, bool value);
+
+
+
 void bitmap_buddy_init(size_t b_start, size_t cnt);
 size_t bitmap_buddy_scan(struct buddy_node* ,size_t);
 size_t bitmap_buddy(struct bitmap *b, size_t cnt, bool value);
+void bitmap_buddy_free(size_t page_idx,size_t page_cnt);
+int buddy_list_search_leafnode(struct buddy_node* parent,size_t page_idx,size_t page_cnt);
+int buddy_merge_leafnode(struct buddy_node* parent);
 #endif /* lib/kernel/bitmap.h */

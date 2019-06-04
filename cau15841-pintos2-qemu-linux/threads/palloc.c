@@ -38,7 +38,7 @@ struct pool
 struct pool kernel_pool, user_pool;
 
 //NEXTfIT 시작 지점을 계석 업데이트하면서 해당 구역부터시작하게 한다.
-static enum polloc_policys policy = BESTFIT;
+static enum polloc_policys policy = BUDDY;
 static size_t nextfitStart;
 
 
@@ -67,17 +67,16 @@ palloc_init (size_t user_page_limit)
   //nextfit을 한다면 nextfitStart를 0으로 초기화한다.
   switch (policy)
   {
-     case NEXTFIT:
+    case NEXTFIT:
      nextfitStart =0;
     break;
-    case BUDDY:
-    
-     bitmap_buddy_init(palloc_get_user_pool_bitmap(),user_pages);
+   case BUDDY:
+    bitmap_buddy_init(0,user_pages);
     break;
   default:
     break;
   }
-  create_dump_page();
+  //create_dump_page();
   print_userpool();
 }
 
@@ -105,7 +104,6 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
         page_idx = bitmap_scan_and_flip (pool->used_map, 0, page_cnt, false);
         break;
       case NEXTFIT:
-        printf("before nextfit Start : %d", nextfitStart);
         page_idx = bitmap_scan_and_flip (pool->used_map, nextfitStart, page_cnt, false);
         //만약 btmap 에러가 뜬다면, nextfitStart를 0으로 초기화하고, 다시 해본다.
         if(page_idx == BITMAP_ERROR){
@@ -114,13 +112,13 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
         }
         //page idx가 나온다면, 해당 page가 할당 된후 다음 주소를 nextfitStart에 넣어준다.
         nextfitStart =  (page_idx + page_cnt)% 367;
-        printf("after nextfit Start : %d \n", nextfitStart);
         break;
       case BESTFIT:
         page_idx = bitmap_best(pool->used_map, page_cnt, false);
         break;
       case BUDDY:
-        page_idx = bitmap_best(pool->used_map, page_cnt, false);
+        page_idx = bitmap_buddy(pool->used_map, page_cnt, false);
+        printf("buddy page_idx : %d\n",page_idx);
         break;
       default:
         break;
@@ -148,8 +146,6 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
     }
     if(flags & PAL_USER? 1 : 0){
        print_userpool();
-       printf("page cnt : %d \n",page_cnt);
-       printf("pool->base : %ul, page %ul\n ",pool->base, pages);
     }
   return pages;
 }
@@ -158,11 +154,6 @@ void *
 palloc_get_user_pool_base(){
   struct pool *pool = &user_pool;
   return pool->base;
-}
-size_t *
-palloc_get_user_pool_bitmap(){
-  struct pool *pool = &user_pool;
-  return pool->used_map;
 }
 // 
 void create_dump_page(){
@@ -238,6 +229,13 @@ palloc_free_multiple (void *pages, size_t page_cnt)
 
   ASSERT (bitmap_all (pool->used_map, page_idx, page_cnt));
   bitmap_set_multiple (pool->used_map, page_idx, page_cnt, false);
+   if (page_from_pool (&user_pool, pages))
+   {
+     printf("freeing !!! page_idx : %d,  \n",page_idx);
+     if(policy == BUDDY){
+       bitmap_buddy_free( page_idx, page_cnt);
+     }
+   }
 }
 
 /* Frees the page at PAGE. */
